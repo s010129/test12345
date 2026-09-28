@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物理水平平面加速度儀</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Space+Grotesk:wght@400;500;700&display=swap');
+        .font-mono-tech { font-family: 'Share Tech Mono', monospace; }
+        .font-sans-grotesk { font-family: 'Space Grotesk', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans-grotesk flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 p-2 rounded-lg text-white">
+                    <i data-lucide="move" class="w-6 h-6 animate-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white">水平平面加速度物理實驗室</h1>
+                    <p class="text-xs text-slate-400">2D Linear Horizontal Acceleration Lab</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span id="connection-status" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-400/10 text-red-400 border border-red-400/20">
+                    <span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-red-400 animate-pulse"></span>
+                    未啟用感測器
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl w-full mx-auto px-4 py-6 flex-grow space-y-6">
+        
+        <!-- Connection and Permission Card -->
+        <div id="permission-card" class="bg-gradient-to-r from-indigo-950 to-slate-900 border border-indigo-500/30 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="space-y-2">
+                <h2 class="text-xl font-semibold text-indigo-300 flex items-center gap-2">
+                    <i data-lucide="smartphone"></i> 授權手機感測器
+                </h2>
+                <p class="text-sm text-slate-300 max-w-xl">
+                    將手機平放在桌面上，點擊右側按鈕允許讀取加速度計。開啟後即可在桌面上滑動手機，即時觀察加速度向量！
+                </p>
+            </div>
+            <button id="btn-request" class="w-full md:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-medium rounded-xl transition duration-150 flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30">
+                <i data-lucide="shield-check" class="w-5 h-5"></i> 啟動加速度儀
+            </button>
+        </div>
+
+        <!-- Notification Banner -->
+        <div id="notification-banner" class="hidden bg-amber-500/10 border border-amber-500/20 text-amber-300 px-4 py-3 rounded-xl flex items-start gap-3">
+            <i data-lucide="alert-triangle" class="w-5 h-5 mt-0.5 flex-shrink-0"></i>
+            <div>
+                <p class="font-medium text-sm" id="notification-title">提示訊息</p>
+                <p class="text-xs text-amber-400/90 mt-0.5" id="notification-desc"></p>
+            </div>
+        </div>
+
+        <!-- Operation Guide Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row gap-4 items-center">
+            <div class="bg-indigo-950/50 p-3 rounded-xl border border-indigo-500/20 text-indigo-400">
+                <i data-lucide="compass" class="w-8 h-8"></i>
+            </div>
+            <div class="text-xs space-y-1">
+                <h4 class="font-bold text-slate-200 text-sm">📐 水平操作教學</h4>
+                <p class="text-slate-400 leading-relaxed">
+                    請將手機<strong class="text-indigo-400">螢幕朝上平放在水平桌面上</strong>。在桌面上推動手機：
+                    <br>• <strong class="text-sky-400">箭頭方向</strong> 指向手機當前受力/推動的加速度方向（包含左右與前後）。
+                    <br>• <strong class="text-amber-400">箭頭長度與顏色</strong> 隨加速度大小變長並變色（推得越急促，箭頭越長且越紅）。
+                </p>
+            </div>
+        </div>
+
+        <!-- Dynamic Vector Visualization Canvas Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+            <div class="flex justify-between items-center">
+                <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                    <i data-lucide="crosshair" class="text-indigo-400"></i> 即時 2D 平面加速度向量模擬儀
+                </h3>
+                <div class="flex items-center space-x-2">
+                    <button id="btn-calibrate" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded transition flex items-center gap-1">
+                        <i data-lucide="refresh-cw" class="w-3 h-3"></i> 靜止歸零校正
+                    </button>
+                    <button id="btn-reset-max" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded transition">
+                        重設最大值
+                    </button>
+                </div>
+            </div>
+
+            <!-- Prominent Direction Alignment Controls -->
+            <div class="bg-indigo-950/60 border border-indigo-500/40 rounded-xl p-3 flex flex-col sm:flex-row justify-between items-center text-xs gap-3">
+                <span class="text-indigo-200 font-medium flex items-center gap-1">
+                    <i data-lucide="sliders" class="w-4 h-4 text-indigo-400"></i> 箭頭方向微調（已預設開啟 X 軸反轉）
+                </span>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <label class="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 border border-indigo-500/30 px-3 py-1.5 rounded-lg cursor-pointer text-slate-200 select-none transition">
+                        <input type="checkbox" id="chk-invert-x" checked class="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-0">
+                        <span class="font-bold text-sky-400">↔️ 反轉 X 軸 (左右)</span>
+                    </label>
+                    <label class="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg cursor-pointer text-slate-200 select-none transition">
+                        <input type="checkbox" id="chk-invert-y" class="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-0">
+                        <span class="font-bold text-teal-400">↕️ 反轉 Y 軸 (前後)</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Canvas Area -->
+                <div id="canvas-container" class="md:col-span-2 relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden flex flex-col items-center justify-center p-2 transition-all">
+                    <canvas id="vectorCanvas" class="w-full h-80 bg-slate-950"></canvas>
+                    
+                    <!-- YouTube-style Fullscreen Button -->
+                    <button id="btn-fullscreen" class="absolute top-3 right-3 bg-indigo-600/90 hover:bg-indigo-500 active:scale-95 text-white px-3 py-1.5 rounded-lg border border-indigo-400/30 shadow-lg flex items-center gap-1.5 text-xs font-semibold backdrop-blur transition z-20">
+                        <i data-lucide="maximize" id="icon-fullscreen" class="w-4 h-4"></i>
+                        <span id="txt-fullscreen">全螢幕觀察</span>
+                    </button>
+
+                    <div class="absolute bottom-3 left-3 text-[10px] text-slate-400 bg-slate-900/90 px-2.5 py-1.5 rounded-lg border border-slate-800 pointer-events-none z-10">
+                        🔴 鮮紅粗箭頭：即時加速度方向與強度 (手推方向)
+                    </div>
+                </div>
+
+                <!-- Readouts & Status -->
+                <div class="space-y-3 flex flex-col justify-between">
+                    <div class="bg-slate-950 rounded-xl border border-slate-800 p-4 space-y-3 flex-grow">
+                        <span class="text-xs text-slate-400 font-semibold block border-b border-slate-800 pb-2">加速度分解數據</span>
+                        
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-sky-400 flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-sky-500"></span>X 軸分量 (左右)
+                                </span>
+                                <span id="readout-ax" class="font-mono-tech text-white font-bold">0.00 m/s²</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-teal-400 flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-teal-500"></span>Y 軸分量 (前後)
+                                </span>
+                                <span id="readout-ay" class="font-mono-tech text-white font-bold">0.00 m/s²</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs border-t border-slate-800/80 pt-2">
+                                <span class="text-indigo-300 font-semibold">合成合加速度 |a|</span>
+                                <span id="readout-amag" class="font-mono-tech text-indigo-300 font-bold text-sm">0.00 m/s²</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-amber-400">加速度方向角度 θ</span>
+                                <span id="readout-angle" class="font-mono-tech text-amber-300 font-bold">0.0°</span>
+                            </div>
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-rose-400">歷史最大加速度 Peak</span>
+                                <span id="readout-max" class="font-mono-tech text-rose-300 font-bold">0.00 m/s²</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-indigo-950/20 rounded-xl border border-indigo-500/10 p-3">
+                        <p class="text-[11px] text-slate-400 leading-relaxed">
+                            💡 <strong class="text-slate-200">向量小知識：</strong>
+                            根據牛頓第二定律 $\vec{F} = m \cdot \vec{a}$，加速度箭頭的方向即代表手給予手機施力的合力方向！
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Numeric Overview Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-center">
+                <span class="text-xs text-slate-400 block mb-1">X 軸加速度 (左右)</span>
+                <span id="card-ax" class="text-3xl font-bold font-mono-tech text-sky-400">0.00</span>
+                <span class="text-xs text-slate-500 ml-1">m/s²</span>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-center">
+                <span class="text-xs text-slate-400 block mb-1">Y 軸加速度 (前後)</span>
+                <span id="card-ay" class="text-3xl font-bold font-mono-tech text-teal-400">0.00</span>
+                <span class="text-xs text-slate-500 ml-1">m/s²</span>
+            </div>
+            <div class="bg-gradient-to-br from-indigo-900/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 text-center">
+                <span class="text-xs text-indigo-400 block mb-1 font-semibold">水平合加速度 |a|</span>
+                <span id="card-amag" class="text-3xl font-bold font-mono-tech text-indigo-300">0.00</span>
+                <span class="text-xs text-indigo-400 ml-1">m/s²</span>
+            </div>
+        </div>
+
+        <!-- Realtime Chart Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                    <i data-lucide="activity" class="text-indigo-400"></i> X/Y 雙軸加速度波形圖
+                </h3>
+                <span class="text-[10px] text-slate-500">更新頻率 60Hz</span>
+            </div>
+            <div class="relative h-64 w-full">
+                <canvas id="realtimeChart"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-900 bg-slate-950/80 py-4 text-center text-xs text-slate-500">
+        <p>提供給物理教學與實驗的數位量測工具 · 2026</p>
+    </footer>
+
+    <!-- JavaScript Controls -->
+    <script>
+        // Lucide Icons Render
+        lucide.createIcons();
+
+        // System Variables & State
+        let deviceActive = false;
+        let rawAx = 0, rawAy = 0;
+        let smoothAx = 0, smoothAy = 0;
+        let calibOffsetX = 0, calibOffsetY = 0;
+        let maxAcceleration = 0;
+
+        // Default invertX to TRUE for user's device behavior
+        let invertX = true;
+        let invertY = false;
+
+        document.getElementById('chk-invert-x').addEventListener('change', (e) => { invertX = e.target.checked; });
+        document.getElementById('chk-invert-y').addEventListener('change', (e) => { invertY = e.target.checked; });
+
+        // Zero Calibration
+        document.getElementById('btn-calibrate').addEventListener('click', () => {
+            calibOffsetX = rawAx;
+            calibOffsetY = rawAy;
+            showNotification('校正成功', '已將當前手機位置設為加速度 0 m/s² 基準點。');
+        });
+
+        // Data Storage for Charts
+        const maxDataPoints = 100;
+        const chartLabels = Array(maxDataPoints).fill('');
+        const axData = Array(maxDataPoints).fill(0);
+        const ayData = Array(maxDataPoints).fill(0);
+
+        // Chart.js Setup
+        const ctx = document.getElementById('realtimeChart').getContext('2d');
+        const realtimeChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartLabels,
+                datasets: [
+                    {
+                        label: 'X 軸加速度 (m/s²)',
+                        data: axData,
+                        borderColor: '#38bdf8', // sky-400
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Y 軸加速度 (m/s²)',
+                        data: ayData,
+                        borderColor: '#2dd4bf', // teal-400
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { display: false },
+                    y: {
+                        grid: { color: '#1e293b' },
+                        ticks: { color: '#94a3b8' }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: '#cbd5e1', font: { size: 11 } }
+                    }
+                }
+            }
+        });
+
+        // Banner Alert Helper
+        function showNotification(title, desc) {
+            const banner = document.getElementById('notification-banner');
+            document.getElementById('notification-title').textContent = title;
+            document.getElementById('notification-desc').textContent = desc;
+            banner.classList.remove('hidden');
+            setTimeout(() => {
+                banner.classList.add('hidden');
+            }, 8000);
+        }
+
+        // Reset peak button
+        document.getElementById('btn-reset-max').addEventListener('click', () => {
+            maxAcceleration = 0;
+            document.getElementById('readout-max').textContent = '0.00 m/s²';
+        });
+
+        // Request Sensors Permission
+        const btnRequest = document.getElementById('btn-request');
+        btnRequest.addEventListener('click', async () => {
+            if (typeof DeviceMotionEvent !== 'undefined') {
+                try {
+                    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                        const status = await DeviceMotionEvent.requestPermission();
+                        if (status === 'granted') {
+                            startSensors();
+                        } else {
+                            showNotification('權限被拒絕', 'iOS 系統需要您的授權，網頁才能存取加速度計數據。');
+                        }
+                    } else {
+                        startSensors();
+                    }
+                } catch (e) {
+                    showNotification('初始化錯誤', e.message);
+                }
+            } else {
+                showNotification('硬體不支援', '此瀏覽器不支援讀取 Motion Sensor。請改在行動裝置的 HTTPS 連線上重試。');
+            }
+        });
+
+        function startSensors() {
+            window.addEventListener('devicemotion', handleMotionEvent);
+            
+            // UI Status Update
+            const statusEl = document.getElementById('connection-status');
+            statusEl.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-400/10 text-emerald-400 border border-emerald-400/20";
+            statusEl.innerHTML = `<span class="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-400 animate-pulse"></span>感測器已啟用`;
+            
+            document.getElementById('permission-card').classList.add('hidden');
+            deviceActive = true;
+        }
+
+        function handleMotionEvent(event) {
+            // Fetch linear acceleration
+            rawAx = event.acceleration?.x || 0;
+            rawAy = event.acceleration?.y || 0;
+
+            // Apply Calibration Offset
+            let currentAx = rawAx - calibOffsetX;
+            let currentAy = rawAy - calibOffsetY;
+
+            // Apply Axis Invert Toggles if needed
+            if (invertX) currentAx = -currentAx;
+            if (invertY) currentAy = -currentAy;
+
+            // Exponential Moving Average filter (Low-pass filter to remove noise)
+            smoothAx = smoothAx * 0.7 + currentAx * 0.3;
+            smoothAy = smoothAy * 0.7 + currentAy * 0.3;
+
+            // Threshold filter for tiny resting jitter
+            if (Math.abs(smoothAx) < 0.08) smoothAx = 0;
+            if (Math.abs(smoothAy) < 0.08) smoothAy = 0;
+
+            // Calculate Magnitude |a|
+            const mag = Math.sqrt(smoothAx * smoothAx + smoothAy * smoothAy);
+            
+            // Peak Recording
+            if (mag > maxAcceleration) {
+                maxAcceleration = mag;
+                document.getElementById('readout-max').textContent = maxAcceleration.toFixed(2) + ' m/s²';
+            }
+
+            // Direction Angle in Degrees (0° is Right +X, 90° is Top +Y)
+            const angleRad = Math.atan2(smoothAy, smoothAx);
+            let angleDeg = angleRad * (180 / Math.PI);
+            if (angleDeg < 0) angleDeg += 360;
+
+            // UI Readouts Update
+            document.getElementById('readout-ax').textContent = smoothAx.toFixed(2) + ' m/s²';
+            document.getElementById('readout-ay').textContent = smoothAy.toFixed(2) + ' m/s²';
+            document.getElementById('readout-amag').textContent = mag.toFixed(2) + ' m/s²';
+            document.getElementById('readout-angle').textContent = mag > 0.08 ? angleDeg.toFixed(1) + '°' : '0.0°';
+            
+            document.getElementById('card-ax').textContent = smoothAx.toFixed(2);
+            document.getElementById('card-ay').textContent = smoothAy.toFixed(2);
+            document.getElementById('card-amag').textContent = mag.toFixed(2);
+
+            // Realtime Chart Update
+            axData.push(smoothAx);
+            axData.shift();
+            ayData.push(smoothAy);
+            ayData.shift();
+            realtimeChart.update('none');
+        }
+
+        // --- Fullscreen API Controls (YouTube Style with iOS Fallback) ---
+        const canvasContainer = document.getElementById('canvas-container');
+        const btnFullscreen = document.getElementById('btn-fullscreen');
+        let isCustomFullscreen = false;
+
+        function updateFullscreenUI(enable) {
+            isCustomFullscreen = enable;
+            const icon = document.getElementById('icon-fullscreen');
+            const txt = document.getElementById('txt-fullscreen');
+
+            if (enable) {
+                // Apply fixed overlay to fill 100% of the screen immediately
+                canvasContainer.classList.add('fixed', 'inset-0', 'z-[100]', 'w-screen', 'h-screen', 'rounded-none', 'bg-slate-950', 'p-0');
+                vCanvas.classList.remove('h-80');
+                vCanvas.classList.add('h-full', 'w-full');
+                if (txt) txt.textContent = '退出全螢幕';
+                if (icon) icon.setAttribute('data-lucide', 'minimize');
+            } else {
+                // Restore standard card size
+                canvasContainer.classList.remove('fixed', 'inset-0', 'z-[100]', 'w-screen', 'h-screen', 'rounded-none', 'bg-slate-950', 'p-0');
+                vCanvas.classList.remove('h-full', 'w-full');
+                vCanvas.classList.add('h-80');
+                if (txt) txt.textContent = '全螢幕觀察';
+                if (icon) icon.setAttribute('data-lucide', 'maximize');
+            }
+            lucide.createIcons();
+            setTimeout(resizeVectorCanvas, 50);
+            setTimeout(resizeVectorCanvas, 150);
+        }
+
+        function toggleFullscreen(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            isCustomFullscreen = !isCustomFullscreen;
+            updateFullscreenUI(isCustomFullscreen);
+
+            // Attempt native browser fullscreen API for supported devices
+            try {
+                if (isCustomFullscreen) {
+                    if (canvasContainer.requestFullscreen) {
+                        canvasContainer.requestFullscreen().catch(() => {});
+                    } else if (canvasContainer.webkitRequestFullscreen) {
+                        canvasContainer.webkitRequestFullscreen().catch(() => {});
+                    }
+                } else {
+                    if (document.exitFullscreen && document.fullscreenElement) {
+                        document.exitFullscreen().catch(() => {});
+                    } else if (document.webkitExitFullscreen && document.webkitFullscreenElement) {
+                        document.webkitExitFullscreen().catch(() => {});
+                    }
+                }
+            } catch (err) {
+                console.log('Native fullscreen handle error fallback to CSS mode.');
+            }
+        }
+
+        if (btnFullscreen) {
+            // Standardize listener to single click event to avoid touch double-firing on iOS
+            btnFullscreen.addEventListener('click', toggleFullscreen);
+        }
+
+        function handleNativeFullscreenChange() {
+            const hasNativeFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+            if (!hasNativeFs && isCustomFullscreen) {
+                updateFullscreenUI(false);
+            }
+        }
+
+        document.addEventListener('fullscreenchange', handleNativeFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleNativeFullscreenChange);
+
+        // --- Vector Visualization Canvas ---
+        const vCanvas = document.getElementById('vectorCanvas');
+        const vCtx = vCanvas.getContext('2d');
+
+        function resizeVectorCanvas() {
+            const rect = vCanvas.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return;
+            vCanvas.width = rect.width * window.devicePixelRatio;
+            vCanvas.height = rect.height * window.devicePixelRatio;
+            vCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset scale transform matrix
+            vCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        window.addEventListener('resize', resizeVectorCanvas);
+        resizeVectorCanvas();
+
+        function drawVectorVisualization() {
+            const width = vCanvas.width / window.devicePixelRatio;
+            const height = vCanvas.height / window.devicePixelRatio;
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // Clear Background
+            vCtx.fillStyle = '#020617'; 
+            vCtx.fillRect(0, 0, width, height);
+
+            // Draw Background Grid Lines
+            vCtx.strokeStyle = '#1e293b'; 
+            vCtx.lineWidth = 1;
+            const gridSize = 25;
+            for(let x = 0; x < width; x += gridSize) {
+                vCtx.beginPath();
+                vCtx.moveTo(x, 0);
+                vCtx.lineTo(x, height);
+                vCtx.stroke();
+            }
+            for(let y = 0; y < height; y += gridSize) {
+                vCtx.beginPath();
+                vCtx.moveTo(0, y);
+                vCtx.lineTo(width, y);
+                vCtx.stroke();
+            }
+
+            // Reference coordinate lines
+            vCtx.strokeStyle = 'rgba(71, 85, 105, 0.3)';
+            vCtx.setLineDash([4, 4]);
+            vCtx.beginPath();
+            vCtx.moveTo(0, centerY);
+            vCtx.lineTo(width, centerY);
+            vCtx.moveTo(centerX, 0);
+            vCtx.lineTo(centerX, height);
+            vCtx.stroke();
+            vCtx.setLineDash([]);
+
+            // Labels for orientation
+            vCtx.fillStyle = '#64748b';
+            vCtx.font = '10px sans-serif';
+            vCtx.fillText('+X (右)', width - 35, centerY - 8);
+            vCtx.fillText('+Y (前)', centerX + 8, 18);
+
+            // --- Draw Central Phone Body Illustration ---
+            const phoneW = 100;
+            const phoneH = 170;
+            const phoneRadius = 14;
+
+            vCtx.save();
+            vCtx.translate(centerX, centerY);
+
+            // Outer shadow / glow
+            vCtx.shadowColor = 'rgba(239, 68, 68, 0.15)';
+            vCtx.shadowBlur = 15;
+
+            // Phone Body
+            vCtx.fillStyle = '#0f172a';
+            vCtx.strokeStyle = '#334155';
+            vCtx.lineWidth = 2.5;
+            vCtx.beginPath();
+            vCtx.roundRect(-phoneW/2, -phoneH/2, phoneW, phoneH, phoneRadius);
+            vCtx.fill();
+            vCtx.stroke();
+
+            // Inner Screen Area
+            vCtx.fillStyle = '#1e293b';
+            vCtx.strokeStyle = '#475569';
+            vCtx.lineWidth = 1;
+            vCtx.beginPath();
+            vCtx.roundRect(-phoneW/2 + 6, -phoneH/2 + 6, phoneW - 12, phoneH - 12, phoneRadius - 4);
+            vCtx.fill();
+            vCtx.stroke();
+
+            // Speaker notch
+            vCtx.fillStyle = '#0f172a';
+            vCtx.beginPath();
+            vCtx.roundRect(-16, -phoneH/2 + 9, 32, 5, 2.5);
+            vCtx.fill();
+
+            // Screen Text Label "手機"
+            vCtx.fillStyle = '#94a3b8';
+            vCtx.font = 'bold 13px sans-serif';
+            vCtx.textAlign = 'center';
+            vCtx.fillText('手機', 0, -phoneH/2 + 35);
+
+            // Sensor Center Dot
+            vCtx.fillStyle = '#ef4444';
+            vCtx.beginPath();
+            vCtx.arc(0, 0, 5, 0, Math.PI * 2);
+            vCtx.fill();
+
+            vCtx.restore();
+
+            // --- Draw Bold Red 2D Vector Acceleration Arrow ---
+            const scaleFactor = 22; // 1 m/s² = 22 pixels
+            const vectorX = smoothAx * scaleFactor;
+            const vectorY = -smoothAy * scaleFactor; 
+
+            const mag = Math.sqrt(smoothAx * smoothAx + smoothAy * smoothAy);
+
+            if (mag > 0.08) {
+                // Bright Extra-Bold Red Vector Arrow (#ef4444) with 12px thickness
+                drawRedVectorArrow(vCtx, centerX, centerY, centerX + vectorX, centerY + vectorY, '#ef4444', 12, mag);
+            }
+
+            requestAnimationFrame(drawVectorVisualization);
+        }
+
+        // Draw Prominent Extra-Bold Red Vector Arrow
+        function drawRedVectorArrow(ctx, fromX, fromY, toX, toY, color, width, mag) {
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const len = Math.sqrt(dx*dx + dy*dy);
+            const headLength = Math.min(32, Math.max(18, len * 0.35)); 
+            const angle = Math.atan2(dy, dx);
+
+            // Arrow Shaft (Thick 12px Line)
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.stroke();
+
+            // Arrow Head (Wide Bold Triangle)
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headLength * Math.cos(angle - Math.PI / 4.5), toY - headLength * Math.sin(angle - Math.PI / 4.5));
+            ctx.lineTo(toX - headLength * Math.cos(angle + Math.PI / 4.5), toY - headLength * Math.sin(angle + Math.PI / 4.5));
+            ctx.closePath();
+            ctx.fill();
+
+            // Magnitude Tag at arrow tip with High Contrast Pill Box
+            ctx.font = 'bold 13px monospace';
+            ctx.textAlign = 'center';
+            const labelX = toX + 28 * Math.cos(angle);
+            const labelY = toY + 28 * Math.sin(angle) + 4;
+            
+            // Draw rounded background pill for text readability
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.roundRect(labelX - 35, labelY - 12, 70, 20, 6);
+            ctx.fill();
+            ctx.stroke();
+            
+            ctx.fillStyle = '#f87171'; // red-400
+            ctx.fillText(mag.toFixed(2) + ' m/s²', labelX, labelY + 3);
+        }
+
+        // Start rendering loop
+        requestAnimationFrame(drawVectorVisualization);
+    </script>
+</body>
+</html>
